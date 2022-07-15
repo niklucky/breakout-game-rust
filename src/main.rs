@@ -47,12 +47,14 @@ impl Player {
 
 struct Block {
     rect: Rect,
+    lives: i32,
 }
 
 impl Block {
     pub fn new(pos: Vec2) -> Self {
         Self {
-            rect: Rect::new(pos.x, pos.y, BLOCK_SIZE.x, BLOCK_SIZE.y)
+            rect: Rect::new(pos.x, pos.y, BLOCK_SIZE.x, BLOCK_SIZE.y),
+            lives: 1,
         }
     }
     pub fn draw(&self) {
@@ -92,6 +94,14 @@ impl Ball {
     }
 }
 
+fn resolve_collision(a: &mut Rect, vel: &mut Vec2, b: &Rect) -> bool {
+    if let Some(_intersection) = a.intersect(*b) {
+        vel.y *= -1f32;
+        return true;
+    }
+    false
+}
+
 #[macroquad::main("breakout")]
 async fn main() {
     let mut player = Player::new();
@@ -118,9 +128,21 @@ async fn main() {
             balls.push(Ball::new(vec2(screen_width() * 0.5f32, screen_height() * 0.5f32)));
         }
         player.update(get_frame_time());
+
         for ball in balls.iter_mut() {
             ball.update(get_frame_time());
         }
+        // Checking for a collision
+        for ball in balls.iter_mut() {
+            resolve_collision(&mut ball.rect, &mut ball.vel, &player.rect);
+            for block in blocks.iter_mut() {
+                if resolve_collision(&mut ball.rect, &mut ball.vel, &block.rect) {
+                    block.lives -= 1;
+                }
+            }
+        }
+        blocks.retain(|block| block.lives > 0);
+
         clear_background(WHITE);
         player.draw();
 
