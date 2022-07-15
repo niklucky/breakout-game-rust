@@ -14,7 +14,7 @@ impl Player {
     pub fn new() -> Self {
         Self {
             rect: Rect::new(
-                screen_width() * 0.5f32 - PLAYER_SIZE.x*0.5f32,
+                screen_width() * 0.5f32 - PLAYER_SIZE.x * 0.5f32,
                 screen_height() - 100f32,
                 PLAYER_SIZE.x,
                 PLAYER_SIZE.y,
@@ -54,11 +54,15 @@ impl Block {
     pub fn new(pos: Vec2) -> Self {
         Self {
             rect: Rect::new(pos.x, pos.y, BLOCK_SIZE.x, BLOCK_SIZE.y),
-            lives: 1,
+            lives: 2,
         }
     }
     pub fn draw(&self) {
-        draw_rectangle(self.rect.x, self.rect.y, self.rect.w, self.rect.h, DARKGRAY);
+        let color = match self.lives {
+            2 => RED,
+            _ => ORANGE,
+        };
+        draw_rectangle(self.rect.x, self.rect.y, self.rect.w, self.rect.h, color);
     }
 }
 
@@ -95,11 +99,27 @@ impl Ball {
 }
 
 fn resolve_collision(a: &mut Rect, vel: &mut Vec2, b: &Rect) -> bool {
-    if let Some(_intersection) = a.intersect(*b) {
-        vel.y *= -1f32;
-        return true;
+    let intersection = match a.intersect(*b) {
+        Some(intersection) => intersection,
+        None => return false,
+    };
+    let a_center = a.point() + a.size() * 0.5f32;
+    let b_center = b.point() + b.size() * 0.5f32;
+    let to = b_center - a_center;
+    let to_signum = to.signum();
+    match intersection.w > intersection.h {
+        true => {
+            // bounce on y
+            a.y -= to_signum.y * intersection.h;
+            vel.y = -to_signum.y * vel.y.abs();
+        }
+        false => {
+            // bounce on x
+            a.x -= to_signum.x * intersection.w;
+            vel.x = -to_signum.x * vel.x.abs();
+        }
     }
-    false
+    true
 }
 
 #[macroquad::main("breakout")]
@@ -112,20 +132,28 @@ async fn main() {
     let padding = 5f32;
     let total_block_size = BLOCK_SIZE + vec2(padding, padding);
 
-    let board_start_pos = vec2((screen_width() - (total_block_size.x * width as f32)) * 0.5f32, 50f32);
+    let board_start_pos = vec2(
+        (screen_width() - (total_block_size.x * width as f32)) * 0.5f32,
+        50f32,
+    );
 
     for i in 0..width * height {
         let block_x = (i % width) as f32 * total_block_size.x;
         let block_y = (i / width) as f32 * total_block_size.y;
 
         blocks.push(Block::new(board_start_pos + vec2(block_x, block_y)));
-
     }
 
-    balls.push(Ball::new(vec2(screen_width() * 0.5f32, screen_height() * 0.5f32)));
+    balls.push(Ball::new(vec2(
+        screen_width() * 0.5f32,
+        screen_height() * 0.5f32,
+    )));
     loop {
         if is_key_pressed(KeyCode::Space) {
-            balls.push(Ball::new(vec2(screen_width() * 0.5f32, screen_height() * 0.5f32)));
+            balls.push(Ball::new(vec2(
+                screen_width() * 0.5f32,
+                screen_height() * 0.5f32,
+            )));
         }
         player.update(get_frame_time());
 
